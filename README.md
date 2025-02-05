@@ -1,70 +1,120 @@
-# Getting Started with Create React App
+# **Project Overview**
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This project demonstrates deploying an Amazon Prime clone using a set of DevOps tools and practices. The primary tools include:
 
-## Available Scripts
+- **Terraform**: Infrastructure as Code (IaC) tool to create AWS infrastructure such as the EKS cluster.
+- **GitHub**: Source code management.
+- **Jenkins**: CI/CD automation tool.
+- **SonarQube**: Code quality analysis and quality gate tool.
+- **NPM**: Build tool for NodeJS.
+- **Aqua Trivy**: Security vulnerability scanner.
+- **Docker**: Containerization tool to create images.
+- **AWS ECR**: Repository to store Docker images.
+- **AWS EKS**: Container management platform.
+- **ArgoCD**: Continuous deployment tool.
+- **Prometheus & Grafana**: Monitoring and alerting tools.
 
-In the project directory, you can run:
+## **Setup Instructions**
 
-### `npm start`
+### **Create EC2 Instance**
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+1. Launch an **AWS T2 Large Instance** using **Ubuntu** as the image.
+2. Create a new key pair or use an existing one for SSH access.
+3. In the **Security Group**, enable HTTP and HTTPS settings and open all ports (for learning purposes only, not recommended in production).
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### **Setup Jenkins on EC2**
 
-### `npm test`
+1. SSH into the EC2 instance.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+    For all required packages refer to this [Install Required Packages](https://github.com/soumyatata/P3-Amazon-Prime-Video-CICD/blob/main/script.sh)
 
-### `npm run build`
+2. Unlock Jenkins using an administrative password and install the suggested plugins.
+   - **Eclipse Temurin Installer** (Install without restart).
+   - **SonarQube Scanner** (Install without restart).
+   - **NodeJS Plugin** (Install without restart).
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+For detailed steps on Jenkins setup & Sonarqube, refer to this [guide](https://mrcloudbook.com/deploying-2048-game-on-docker-and-kubernetes-with-jenkins-ci-cd/).
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### **AWS CLI Configuration**
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+Configure AWS CLI with your **access key** and **secret key**:
 
-### `npm run eject`
+```bash
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+   aws configure
+```
+### **Clone the Project**
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+1. Clone the project repository from GitHub:
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+```bash
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+    git clone https://github.com/soumyatata/P3-Amazon-Prime-Video-CICD.git
 
-## Learn More
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### **Terraform Setup for EKS Cluster**
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+1. Navigate to 
 
-### Code Splitting
+```bash
+    cd terraform/eks_node
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+2. Initialize Terraform:
 
-### Analyzing the Bundle Size
+```bash
+    terraform init
+```
+3. Apply Terraform configuration to create the EKS cluster:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+```bash    
+    terraform apply --auto-approve
+```
+    
+### **Jenkins Pipeline Overview**
+    
+The CI/CD pipeline consists of several stages:
 
-### Making a Progressive Web App
+**Step 1** Git Checkout: 
+    Clones the source code from GitHub.
+**Step 2:**SonarQube Analysis: 
+    Performs static code analysis.
+**Step 3:**Quality Gate: Ensures code quality standards are met.
+**Step 4:**Trivy Security Scan: Scans the project for vulnerabilities.
+**Step 5:**Docker Build: Builds a Docker image for the project.
+**Step 6:**Push to AWS ECR: Tags and pushes the Docker image to ECR.
+**Step 7:**Image Cleanup: Deletes images from the Jenkins server to save space.
+**Step 8:**Deploy to EKS
+**Step 9:**After the pipeline is built, log in to EKS and deploy the application.
+**Step 10:**Monitoring Setup
+    Integrate Prometheus and Grafana for monitoring.
+    Configure Prometheus to collect metrics and Grafana to visualize them.
+**Step 11:**Pipeline Cleanup
+    To delete the resources such as load balancers, services, and deployment files.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+Use terraform destroy to remove the EKS cluster and other infrastructure.
 
-### Advanced Configuration
+cd terraform/eks_node
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+```bash
+    terraform destroy --auto-approve
+```
+**Create a Jenkins Pipeline**
 
-### Deployment
+1️⃣ Go to Jenkins Dashboard → New Item → Pipeline.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+2️⃣ Add the following pipeline script:
 
-### `npm run build` fails to minify
+Click on 'Build Now' in Jenkins.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+
+📢 Let's Connect!
+
+If you have any questions or suggestions, feel free to reach out. Contributions are welcome!
+
+🔗 **GitHub:** [AMAZON-PRIME-APP](https://github.com/soumyatata/P3-Amazon-Prime-Video-CICD)
+
+🔗 **LinkedIn:** [SoumyaTata](https://www.linkedin.com/in/t-soumya/)
+
+🚀 Happy Coding & DevOps Journey! 🚀
