@@ -153,5 +153,15 @@ pipeline {
                 }	
             }
         }
+
+        stage("Deploy to EKS") {
+            steps {
+                script {
+                        // Apply the deployment and service files
+                        sh "kubectl apply -f k8s_files/deployment.yaml"
+                        sh "kubectl apply -f k8s_files/service.yaml"
+                }
+            }
+        }
     }
 }
