@@ -1,11 +1,15 @@
 # Use a specific Node.js version on Alpine base image
 FROM node:16-alpine
 
+RUN addgroup -S nonroot \
+    && adduser -S nonroot -G nonroot
+
+USER nonroot
+
 # Set the working directory inside the container
 WORKDIR /app
 
-# Create a non-root user and group
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
 
 # Copy package.json and package-lock.json first (before the rest of the code)
 COPY package.json package-lock.json ./
