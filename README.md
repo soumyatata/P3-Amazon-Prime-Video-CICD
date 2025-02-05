@@ -28,7 +28,7 @@ This project demonstrates deploying an Amazon Prime clone using a set of DevOps 
 
     For all required packages refer to this [Install Required Packages](https://github.com/soumyatata/P3-Amazon-Prime-Video-CICD/blob/main/script.sh)
 
-2. Unlock Jenkins using an administrative password and install the suggested plugins.
+2. Unlock Jenkins using an administrative password and install the suggested plugins like
    - **Eclipse Temurin Installer** (Install without restart).
    - **SonarQube Scanner** (Install without restart).
    - **NodeJS Plugin** (Install without restart).
@@ -76,22 +76,38 @@ Configure AWS CLI with your **access key** and **secret key**:
     
 The CI/CD pipeline consists of several stages:
 
-**Step 1** Git Checkout: 
+**Step 1:** Git Checkout: 
+
     Clones the source code from GitHub.
+
 **Step 2:**SonarQube Analysis: 
+
     Performs static code analysis.
+
 **Step 3:**Quality Gate: Ensures code quality standards are met.
+
 **Step 4:**Trivy Security Scan: Scans the project for vulnerabilities.
+
 **Step 5:**Docker Build: Builds a Docker image for the project.
+
 **Step 6:**Push to AWS ECR: Tags and pushes the Docker image to ECR.
+
 **Step 7:**Image Cleanup: Deletes images from the Jenkins server to save space.
+
 **Step 8:**Deploy to EKS
+
 **Step 9:**After the pipeline is built, log in to EKS and deploy the application.
+
 **Step 10:**Monitoring Setup
+
     Integrate Prometheus and Grafana for monitoring.
+
     Configure Prometheus to collect metrics and Grafana to visualize them.
+
 **Step 11:**Pipeline Cleanup
+
     To delete the resources such as load balancers, services, and deployment files.
+
 
 Use terraform destroy to remove the EKS cluster and other infrastructure.
 
