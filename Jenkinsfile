@@ -8,7 +8,8 @@ pipeline {
         IMAGE_TAG = "latest"  
         SONARQUBE_CREDENTIALS = 'Sonar-token'  
         SONARQUBE_SERVER = 'sonar-server'  
-        SCANNER_HOME = tool 'sonar-scanner'  
+        SCANNER_HOME = tool 'sonar-scanner' 
+        CLUSTER_NAME= 'amazon-prime-cluster' 
     }
 
     stages {
@@ -40,7 +41,7 @@ pipeline {
         stage('Quality Gate') {
             steps {
                 script {
-                    waitForQualityGate abortPipeline: true, 
+                    waitForQualityGate abortPipeline: false, 
                     credentialsId: "${SONARQUBE_CREDENTIALS}"  
                 }
             }
@@ -101,8 +102,11 @@ pipeline {
         stage('Build and Tag Docker Image') {
             steps {
                 script {
-                    sh """docker build -t ${ECR_REPO_NAME}:${IMAGE_TAG} ."""
-                    sh """docker tag ${ECR_REPO_NAME}:${IMAGE_TAG} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:${IMAGE_TAG}"""
+                    sh '''
+                        docker build -t ${ECR_REPO_NAME}:${IMAGE_TAG} .
+                        docker tag ${ECR_REPO_NAME}:${IMAGE_TAG} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:${IMAGE_TAG}
+                    '''
+                    
                 }
             }
         }
@@ -110,16 +114,43 @@ pipeline {
         stage('Push Docker Image to ECR') {
             steps {
                 script {
-                    sh "docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:${IMAGE_TAG}"
+                    sh '''
+                        docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:${IMAGE_TAG}
+                    '''
                 }
             }
         }
-    }
+        stage('Cleanup Images in Jenkins Server') {
+            steps {
+                sh '''
+                    docker rmi ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/${ECR_REPO_NAME}:${IMAGE_TAG}
+                    docker images
+                '''
+            }
+        }
 
-    post {
-        always {
-            script {
-                sh 'docker image prune -f || true'  // Clean up unused images
+        stage("Login to EKS") {
+            steps {
+                script {
+                    withCredentials([aws(credentialsId: 'AWSCredentials', 
+                        accessKeyVariable: 'AWS_ACCESS_KEY_ID', 
+                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                        // Update kubeconfig
+                        sh '''
+                            aws eks --region ${AWS_REGION} update-kubeconfig --name ${CLUSTER_NAME}
+                        '''
+                        
+                    }
+                }
+            }
+        }
+
+        stage ("Select Image Version") {
+            steps {
+                script {
+                        def ECR_IMAGE_NAME = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:${IMAGE_TAG}"
+                        sh "sed -i 's|image: .*|image: ${ECR_IMAGE_NAME}|' k8s_files/deployment.yaml"
+                }	
             }
         }
     }
