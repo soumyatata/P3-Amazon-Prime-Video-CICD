@@ -1,10 +1,10 @@
 # Use a specific Node.js version on Alpine base image
 FROM node:16-alpine
 
-RUN addgroup -S nonroot \
-    && adduser -S nonroot -G nonroot
+# RUN addgroup -S nonroot \
+#     && adduser -S nonroot -G nonroot
 
-USER nonroot
+# USER nonroot
 
 # Set the working directory inside the container
 WORKDIR /app

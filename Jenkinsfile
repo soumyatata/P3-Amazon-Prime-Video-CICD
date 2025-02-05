@@ -10,6 +10,7 @@ pipeline {
         SONARQUBE_SERVER = 'sonar-server'  
         SCANNER_HOME = tool 'sonar-scanner' 
         CLUSTER_NAME= 'amazon-prime-cluster' 
+        KUBECTL = '/usr/local/bin/kubectl'
     }
 
     stages {
@@ -158,10 +159,90 @@ pipeline {
             steps {
                 script {
                         // Apply the deployment and service files
-                        sh "kubectl apply -f k8s_files/deployment.yaml"
-                        sh "kubectl apply -f k8s_files/service.yaml"
+                        sh "${KUBECTL} apply -f k8s_files/deployment.yaml"
+                        sh "${KUBECTL} apply -f k8s_files/service.yaml"
                 }
             }
         }
+        
+        stage("Configure Prometheus & Grafana") {
+            steps {
+                script {
+                    sh """
+                    helm repo add stable https://charts.helm.sh/stable || true
+                    helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
+                    # Check if namespace 'prometheus' exists
+                    if kubectl get namespace prometheus > /dev/null 2>&1; then
+                        # If namespace exists, upgrade the Helm release
+                        helm upgrade stable prometheus-community/kube-prometheus-stack -n prometheus
+                    else
+                        # If namespace does not exist, create it and install Helm release
+                        kubectl create namespace prometheus
+                        helm install stable prometheus-community/kube-prometheus-stack -n prometheus
+                    fi
+                    kubectl patch svc stable-kube-prometheus-sta-prometheus -n prometheus -p '{"spec": {"type": "LoadBalancer"}}'
+                    kubectl patch svc stable-grafana -n prometheus -p '{"spec": {"type": "LoadBalancer"}}'
+                    """
+                }
+            }
+        }
+
+        stage("Configure ArgoCD") {
+            steps {
+                script {
+                    sh """
+                    # Install ArgoCD
+                    kubectl create namespace argocd || true
+                    kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+                    kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "LoadBalancer"}}'
+                    """
+                }
+            }
+        }
+
+         stage('Cleanup K8s Resources') {
+            steps {
+                script {
+                    // Step 1: Delete services and deployments
+                    sh 'kubectl delete svc kubernetes || true'
+                    sh 'kubectl delete deploy  prime-app || true'
+                    sh 'kubectl delete svc  prime-app || true'
+
+                    // Step 2: Delete ArgoCD installation and namespace
+                    sh 'kubectl delete -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml || true'
+                    sh 'kubectl delete namespace argocd || true'
+
+                    // Step 3: List and uninstall Helm releases in prometheus namespace
+                    sh 'helm list -n prometheus || true'
+                    sh 'helm uninstall kube-stack -n prometheus || true'
+                    
+                    // Step 4: Delete prometheus namespace
+                    sh 'kubectl delete namespace prometheus || true'
+
+                    // Step 5: Remove Helm repositories
+                    sh 'helm repo remove stable || true'
+                    sh 'helm repo remove prometheus-community || true'
+                }
+            }
+        }
+		
+        stage('Delete ECR Repository and KMS Keys') {
+            steps {
+                script {
+                    // Step 1: Delete ECR Repository
+                    sh '''
+                    aws ecr delete-repository --repository-name ${ECR_REPO_NAME} --region ${AWS_REGION} --force
+                    '''
+
+                    // Step 2: Delete KMS Keys
+                    sh '''
+                    for key in $(aws kms list-keys --region us-east-1 --query "Keys[*].KeyId" --output text); do
+                        aws kms disable-key --key-id $key --region us-east-1
+                        aws kms schedule-key-deletion --key-id $key --pending-window-in-days 7 --region us-east-1
+                    done
+                    '''
+                }
+            }
+        }		
     }
 }
