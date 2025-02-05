@@ -4,6 +4,9 @@ FROM node:16-alpine
 # Set the working directory inside the container
 WORKDIR /app
 
+# Create a non-root user and group
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
 # Copy package.json and package-lock.json first (before the rest of the code)
 COPY package.json package-lock.json ./
 
